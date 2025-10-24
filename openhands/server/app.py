@@ -31,6 +31,10 @@ from openhands.server.routes.public import app as public_api_router
 from openhands.server.routes.secrets import app as secrets_router
 from openhands.server.routes.security import app as security_api_router
 from openhands.server.routes.settings import app as settings_router
+try:
+    from openhands.server.routes.builder import app as builder_router
+except Exception:  # feature-flagged include; route may not exist in some builds
+    builder_router = None  # type: ignore
 from openhands.server.routes.trajectory import app as trajectory_router
 from openhands.server.shared import conversation_manager, server_config
 from openhands.server.types import AppMode
@@ -94,3 +98,13 @@ if server_config.enable_v1:
     app.include_router(v1_router.router)
 app.include_router(trajectory_router)
 add_health_endpoints(app)
+
+# Feature-flagged builder routes via extended config
+try:
+    from openhands.server.shared import config as _config
+
+    builder_enabled = bool(getattr(getattr(_config, 'extended', {}), 'builder', {}).get('enable', False))
+    if builder_router is not None and builder_enabled:
+        app.include_router(builder_router)
+except Exception:
+    pass
