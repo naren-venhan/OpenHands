@@ -21,6 +21,15 @@ async def create_job(body: dict) -> JSONResponse:
     if mode not in ('url', 'figma', 'prompt'):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Invalid mode')
     job: Job = _orchestrator.create_job(mode, payload, options)
+    # Immediately schedule background execution
+    try:
+        import asyncio
+
+        loop = asyncio.get_running_loop()
+        loop.call_soon(_orchestrator.schedule, job.id)
+    except RuntimeError:
+        # Fallback if not in async context
+        pass
     return JSONResponse({'jobId': job.id})
 
 
@@ -59,5 +68,17 @@ async def approve(job_id: str, phase: Phase) -> JSONResponse:
     job.approvalsNeeded = [p for p in job.approvalsNeeded if p != phase]
     if not job.approvalsNeeded:
         job.state = JobState.RUNNING
+    # track approval in context to allow orchestrator resume to skip this gate
+    approved = set(job.context.get('approved_phases', []))
+    approved.add(phase.value)
+    job.context['approved_phases'] = list(approved)
     save_job(job)
+    # resume execution
+    try:
+        import asyncio
+
+        loop = asyncio.get_running_loop()
+        loop.call_soon(_orchestrator.schedule, job.id)
+    except RuntimeError:
+        pass
     return JSONResponse({'ok': True})
