@@ -540,3 +540,19 @@ type = "noop"
 # - "noop_router" (default): No routing, always uses primary LLM
 # - "multimodal_router": A router that switches between primary and secondary models, depending on whether the input is multimodal or not
 #router_name = "noop_router"
+
+#################################### Extended ###################################
+# Custom extensions live here. These are optional and disabled by default.
+#################################################################################
+[extended]
+
+  # Builder extension (VikrAI storefront builder) - disabled by default
+  [extended.builder]
+  enable = false
+  enable_node_tooling = false   # install node toolchain in runtime (lighthouse, ts-morph)
+  require_approvals = ["compose", "deploy"]
+  preview_provider = "vercel"   # or "netlify"
+  budgets = { crawlTimeoutSec = 720, lhRuns = 3 }
+
+  # MCP tool endpoints (examples). Prefer SHTTP for long-running services.
+  # Configure either shttp_servers or stdio_servers (or both) in the global [mcp] section.
