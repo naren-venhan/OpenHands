@@ -13,13 +13,25 @@ app = APIRouter(prefix='/api/builder', dependencies=get_dependencies())
 _orchestrator = BuilderOrchestrator()
 
 
-@app.post('/jobs')
-async def create_job(body: dict) -> JSONResponse:
+def _validate_body(body: dict) -> tuple[str, dict, dict]:
     mode = body.get('mode')
     payload = body.get('payload', {})
     options = body.get('options', {})
     if mode not in ('url', 'figma', 'prompt'):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Invalid mode')
+    # Basic payload validation per mode (MVP)
+    if mode == 'url' and not isinstance(payload.get('startUrl'), str):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='startUrl required for url mode')
+    if mode == 'figma' and not isinstance(payload.get('fileKey'), str):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='fileKey required for figma mode')
+    if mode == 'prompt' and not isinstance(payload.get('brief'), str):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='brief required for prompt mode')
+    return mode, payload, options
+
+
+@app.post('/jobs')
+async def create_job(body: dict) -> JSONResponse:
+    mode, payload, options = _validate_body(body)
     job: Job = _orchestrator.create_job(mode, payload, options)
     # Immediately schedule background execution
     try:

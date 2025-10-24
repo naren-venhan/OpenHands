@@ -100,3 +100,29 @@ class BuildArtifact(BaseModel):
     previewUrl: str
     testSummary: dict[str, int] = Field(default_factory=dict)
     lighthouseSummary: AuditScores | None = None
+
+
+# MCP tool argument/response stubs (documentation-only for now)
+
+class ScraperCrawlArgs(BaseModel):
+    startUrl: str
+    maxDepth: int | None = None
+    patterns: list[str] = Field(default_factory=list)
+    denyPatterns: list[str] = Field(default_factory=list)
+    rateLimit: float | None = None
+
+
+class LighthouseAuditArgs(BaseModel):
+    url: str
+    device: Literal['mobile', 'desktop']
+    runs: int | None = None
+
+
+class FigmaExportStylesArgs(BaseModel):
+    fileKey: str
+
+
+class DeployerPreviewArgs(BaseModel):
+    provider: Literal['vercel', 'netlify']
+    env: Literal['preview']
+    secrets: dict[str, str] | None = None

@@ -68,6 +68,7 @@ class BuilderOrchestrator:
         start_index = PHASES.index(job.phase or Phase.PLAN)
         job.state = JobState.RUNNING
         save_job(job)
+        await self._emit(job)
 
         settings = _get_builder_settings()
         approvals = set()
@@ -84,6 +85,7 @@ class BuilderOrchestrator:
             job.phase = phase
             job.progress = round((idx) / (len(PHASES) - 1), 3)
             save_job(job)
+            await self._emit(job)
 
             # Gate if required and not already approved
             if phase in approvals and phase.value not in approved_phases:
@@ -91,6 +93,7 @@ class BuilderOrchestrator:
                 if phase not in job.approvalsNeeded:
                     job.approvalsNeeded.append(phase)
                 save_job(job)
+                await self._emit(job)
                 return  # stop runner; will be resumed on approval
 
             # Simulate work for MVP (no external tools yet)
@@ -100,3 +103,23 @@ class BuilderOrchestrator:
         job.state = JobState.SUCCESS
         job.progress = 1.0
         save_job(job)
+        await self._emit(job)
+
+    async def _emit(self, job: Job) -> None:
+        """Emit socket.io event for builder updates; best-effort, ignored if sio not available."""
+        try:
+            # Import here to avoid import cycles at module import time
+            from openhands.server.shared import sio  # type: ignore
+
+            payload = {
+                'jobId': job.id,
+                'state': job.state,
+                'phase': job.phase,
+                'progress': job.progress,
+                'approvals': [p.value for p in job.approvalsNeeded],
+                'lastError': job.lastError,
+            }
+            await sio.emit('builder_update', payload)
+        except Exception:
+            # Silent: event stream is optional; status endpoint is the source of truth
+            return
